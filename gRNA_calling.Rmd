@@ -1,0 +1,174 @@
+---
+title: "gRNA and iBAR calling for perturb-seq data"
+author: "Magdalena Strauss"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes  
+    keep_md: yes 
+---
+
+This script assignes gRNAs and iBAR barcodes to cells for the perturb-seq data.
+
+# Setup 
+
+```{r,output=FALSE,message=FALSE,warning=FALSE}
+knitr::opts_chunk$set(
+    echo = FALSE,
+    message = FALSE,
+    warning = FALSE,
+    message = FALSE,
+    dev = c("pdf"),
+    dpi=300
+)
+chooseCRANmirror(ind=69)
+core_function_file <- "../../core_functions.R"
+source(core_function_file)
+library(dplyr)
+library(stringr)
+set.seed(12345)
+
+folders_cellranger_gRNA <- c("../cellranger/CBE_gRNA/outs","../cellranger/ABE_gRNA/outs")
+folders_cellranger_iBAR <- c("../cellranger/CBE_iBAR/outs","../cellranger/ABE_iBAR/outs")
+file_name_gRNA_assignment <- "gRNA_assignment.rds"
+file_name_iBAR_assignment <- "iBAR_assignment.rds" 
+file_name_sce_list_after_QC <- "sce_list.rds"
+file_name_sce_list_after_gRNA_iBAR_assignment <- "sce_list_gRNA_iBAR.rds"
+ids <- c("CBE","ABE")
+gRNA_number_file_CBE <- "validation_lib_CBE_with_gRNA_numbers.csv"
+gRNA_number_file_ABE <- "validation_lib_ABE_with_gRNA_numbers.csv"
+  
+read_in_raw_matrix <- function(name_path)
+{# for cellranger output
+  matrix_dir = paste(name_path,"/raw_feature_bc_matrix/",sep="")
+  barcode_path <- paste0(matrix_dir, "barcodes.tsv.gz")
+  features_path <- paste0(matrix_dir, "features.tsv.gz")
+  matrix_path <- paste0(matrix_dir, "matrix.mtx.gz")
+  mat_raw <- readMM(file = matrix_path)
+  feature_names = read.delim(features_path,
+                             header = FALSE,
+                             stringsAsFactors = FALSE)
+  barcode_names = read.delim(barcode_path,
+                             header = FALSE,
+                             stringsAsFactors = FALSE)
+  colnames(mat_raw) = barcode_names$V1
+  rownames(mat_raw) = feature_names$V1
+  return(mat_raw)
+}
+
+```
+
+
+Read in the SingleCellExperiments after QC. 
+
+```{r}
+sce_list <- readRDS(file_name_sce_list_after_QC)
+colnames(sce_list[[2]]) <- paste0(substring(colnames(sce_list[[2]]),1,17),"2")
+```
+
+Reading in the gRNA matrices.
+
+```{r}
+gRNA_matrices <- list()
+for (k in 1:length(folders_cellranger_gRNA)){
+  matrix_temp <- read_in_raw_matrix(folders_cellranger_gRNA[k])
+  gRNA_matrices[[k]] <- matrix_temp[!(grepl("ENS",rownames(matrix_temp))),]
+  colnames(gRNA_matrices[[k]]) <- paste0(substring(colnames(gRNA_matrices[[k]]),1,16),"-",toString(k))
+  gRNA_matrices[[k]] <- gRNA_matrices[[k]][,colnames(gRNA_matrices[[k]])%in%colnames(sce_list[[k]])]
+}
+```
+
+# gRNA assignment
+
+We perform gRNA assignment using a mixture of skewed normal distributions as Cooper, Coelho, Strauss, et. al. (2023). https://doi.org/10.1101/2023.05.22.541777
+
+```{r,fig.width=13,fig.height=7}
+gRNA_assignment <- list()
+for (j in 1:length(ids)){
+  gRNA_assignment[[j]] <- barcode_calling( gRNA_matrices[[j]],paste0("gRNA ",ids[j]))
+}
+names(gRNA_assignment) <- ids
+saveRDS(gRNA_assignment,file=file_name_gRNA_assignment)
+```
+Assigning gRNAs the SingleCellExperiment 
+
+```{r}
+sce_list_all_cells <- sce_list #sces with all cells, not only those assigned gRNAs
+
+for (j in 1:2){
+  sce_list[[j]]$gRNA <- NA
+  sce_list[[j]]$iBAR <- NA
+}
+
+
+for (j in 1:length(sce_list)){
+  xx <- intersect(colnames(sce_list[[j]]),names(gRNA_assignment[[j]]$barcode_assignment$barcode_assignment))
+  sce_list[[j]] <- sce_list[[j]][,xx]
+  sce_list[[j]]$gRNA <- gRNA_assignment[[j]]$barcode_assignment$barcode_assignment[xx]
+}
+
+for (j in 1:length(sce_list)){
+ sce_list[[j]]$nr_gRNAs <- sapply(sce_list[[j]]$gRNA,function(x) str_count(x,"-")+1)
+}
+
+
+```
+
+# iBAR assignment
+
+Reading in the iBAR matrices
+
+```{r}
+iBAR_matrices <- list()
+for (k in 1:length(folders_cellranger_iBAR)){
+  matrix_temp <- read_in_raw_matrix(folders_cellranger_iBAR[k])
+  iBAR_matrices[[k]] <- matrix_temp[!(grepl("ENS",rownames(matrix_temp))),]
+  colnames(iBAR_matrices[[k]]) <- paste0(substring(colnames(iBAR_matrices[[k]]),1,16),"-",toString(k))
+  iBAR_matrices[[k]] <- iBAR_matrices[[k]][,colnames(iBAR_matrices[[k]])%in%colnames(sce_list[[k]])]
+}
+```
+
+As the noise levels for the gRNA umi counts are much lower then for the iBAR counts, we assign iBARs to cells with a unique gRNA assigned by using the iBAR with the highest umi count in the cell. Similarly, we assign n iBARs with the highest UMI counts to a cell with n gRNAs.
+
+```{r}
+assign_iBAR <- function(k,j){
+  a <- names(sort(iBAR_matrices[[j]][,colnames(sce_list[[j]])[k]],decreasing=TRUE)[1:(sce_list[[j]]$nr_gRNAs[k])])
+  if (length(a) > 1){
+    b <- a
+    a <- b[1]
+    for (jk in 2:length(b)){
+      a <- paste0(a,"-",b[jk])
+    }
+  }
+  return(a)
+}
+for (j in 1:2){
+  sce_list[[j]]$iBAR <- sapply(1:ncol(sce_list[[j]]),function(x) assign_iBAR(x,j))
+}
+
+```
+
+
+Save the SingleCellExperiment. 
+
+```{r}
+saveRDS(sce_list,file_name_sce_list_after_gRNA_iBAR_assignment)
+```
+
+Numbers of cells called for each gRNA before and after QC. 
+
+```{r}
+gRNA_assignment <- readRDS(file_name_gRNA_assignment)
+validation_lib <- read.table("../../validation_lib_annotated_230223.csv",sep=",",header=TRUE)
+validation_lib_CBE <- validation_lib[validation_lib$editor=="CBE",]
+validation_lib_ABE <- rbind(validation_lib[validation_lib$editor=="ABE",],
+                           validation_lib[validation_lib$Gene=="N/A",])
+validation_lib_CBE$nr_cells_after_QC <- gRNA_assignment$CBE$barcode_assignment$barcode_distribution_unique[validation_lib_CBE$sgRNA_ID]
+validation_lib_ABE$nr_cells_after_QC <- gRNA_assignment$ABE$barcode_assignment$barcode_distribution_unique[validation_lib_ABE$sgRNA_ID]
+validation_lib_ABE$nr_cells_after_QC[is.na(validation_lib_ABE$nr_cells_after_QC)] <- 0
+validation_lib_CBE$nr_cells_after_QC[is.na(validation_lib_CBE$nr_cells_after_QC)] <- 0
+write.table(validation_lib_CBE,file=gRNA_number_file_CBE,sep=",",col.names=TRUE,row.names=FALSE)
+write.table(validation_lib_ABE,file=gRNA_number_file_ABE,sep=",",col.names=TRUE,row.names=FALSE)
+```
+
+

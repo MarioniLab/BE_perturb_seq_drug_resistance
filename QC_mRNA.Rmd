@@ -1,0 +1,98 @@
+---
+title: "QC for perturb-seq data"
+author: "Magdalena Strauss"
+output:
+  BiocStyle::html_document:
+    code_folding: hide
+    number_sections: yes
+    toc: yes 
+bibliography: QC.bib
+---
+
+# QC by total umi count, number of features detected, and percentage of mitochondrial DNA
+
+This notebook performs outlier-based QC for the non-genotyped large base editor screen, removing low outliers for the total count, low outliers for the number of detected features and high outliers for the percentage of counts from mitochondrial genes.
+
+```{r,output=FALSE,message=FALSE,warning=FALSE}
+knitr::opts_chunk$set(
+    echo = FALSE,
+    message = FALSE,
+    warning = FALSE,
+    message = FALSE,
+    dev = "pdf",
+    dpi=300
+)
+
+library(Matrix)
+library(ggplot2)
+library(AnnotationHub)
+library(AnnotationDbi)
+library(scran)
+library(scater)
+library(grateful)
+library(gridExtra)
+
+folders_cellranger <- c("../cellranger/cellranger700_count_46539_7105STDY13259924_GRCh38-2020-A","../cellranger/cellranger700_count_46539_7105STDY13259926_GRCh38-2020-A")
+file_name_mRNA_matrices <- "mRNA_matrices.rds"
+file_name_mRNA_matrices_QC <- "mRNA_matrices_QC.rds"
+file_name_sces <- "sce_list.rds"
+ids <- c("CBE","ABE")
+
+source("../../core_functions.R")
+```
+
+
+```{r}
+mRNA_matrices <- list()
+for (k in 1:length(folders_cellranger)){
+ matrix_temp <- read_in_filtered_matrix(folders_cellranger[k])
+  mRNA_matrices[[k]] <- matrix_temp[grepl("ENS",rownames(matrix_temp)),]
+}
+names(mRNA_matrices) <- ids
+saveRDS(mRNA_matrices,file_name_mRNA_matrices)
+```
+
+Number of cells before QC: `r ncol(mRNA_matrices[[1]]) + ncol(mRNA_matrices[[2]])`
+In the ABE data set: `r ncol(mRNA_matrices[[2]])`
+In the CBE data set: `r ncol(mRNA_matrices[[1]])`
+
+```{r}
+discard <- list()
+mRNA_matrices_QC <- list()
+for (j in 1:length(mRNA_matrices)){
+  discard[[j]] <- QC_mRNA_outlier(mRNA_matrices[[j]],file_name = paste0("Sample_",ids[j]))
+  mRNA_matrices_QC[[j]] <- mRNA_matrices[[j]][,!(discard[[j]])]
+}
+names(mRNA_matrices_QC) <- ids
+saveRDS(mRNA_matrices_QC,file=file_name_mRNA_matrices_QC)
+```
+
+Number of cells after QC: `r ncol(mRNA_matrices_QC[[1]]) + ncol(mRNA_matrices_QC[[2]])`
+In the ABE data set: `r ncol(mRNA_matrices_QC[[2]])`
+In the CBE data set: `r ncol(mRNA_matrices_QC[[1]])`
+
+# Creating SingleCellExperiment and Normalisation
+
+```{r}
+set.seed(42)
+getHVGs <- function(sce,min_mean = 0.001,FDR = 0.01)
+{
+  stats <- modelGeneVar(sce)
+  stats <- stats[stats$mean > min_mean,]
+  top_genes <- rownames(stats[stats$FDR < FDR,])
+  return(top_genes)
+}
+sce_list <- list()
+for (j in 1:2){
+  sce_list[[j]] <- SingleCellExperiment(
+    assays = list(counts = mRNA_matrices_QC[[j]]), colData = colnames(mRNA_matrices_QC[[j]]))
+  clusts = as.numeric(quickCluster(sce_list[[j]], method = "igraph", min.size = 100))
+  sce_list[[j]] = computeSumFactors(sce_list[[j]], clusters = clusts)
+  sce_list[[j]] <- logNormCounts(sce_list[[j]])
+}
+names(sce_list) <- ids
+saveRDS(sce_list,file=file_name_sces)
+```
+
+
+

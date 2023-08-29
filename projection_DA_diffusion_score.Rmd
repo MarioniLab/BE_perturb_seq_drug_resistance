@@ -1,0 +1,157 @@
+---
+title: "Projection of diffusion score to drug addiction on CBE data set"
+author: "Magdalena Strauss"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes  
+    keep_md: yes 
+---
+
+# Projecting DA based diffusion score to CBE data set
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+knitr::opts_chunk$set(
+    echo = FALSE,
+    message = FALSE,
+    warning = FALSE,
+    message = FALSE,
+    dev = c("pdf"),
+    dpi=300
+)
+library(scran)
+library(scater)
+library(ggplot2)
+library(ggridges)
+library(batchelor)
+library(energy)
+sce_ABE <- readRDS("sce_ABE.rds")
+sce_CBE <- readRDS("sce_CBE.rds")
+colourscheme_variant_class <- c("control"="lightgrey","canonical drug resistance"="darkblue","driver"="orange","drug addiction"="darkred", "NT_control" = "black")
+```
+
+We find for each resistance iBAR group in the CBE data set the 5 closest iBAR groups in the ABE data set, to transfer the diffusion scores for the transition to drug addiction (there are no drug addiction conferring gRNAs in the CBE data set, so we need to do this mapping), where closest refers to rank correlation between ABE and CBE based on the genes most rank-correlated with the diffusion score for the ABE data set. Then the CBE iBAR group is assigned the mean diffusion score of those five ABE iBAR groups.
+
+
+```{r}
+sce_ABE_resistance <- sce_ABE[,!(is.na(sce_ABE$diffusion_score))]
+logcounts_temp <- logcounts(sce_ABE_resistance)
+sds <- apply(logcounts_temp,1,sd)
+logcounts_temp <- logcounts_temp[sds > quantile(sds,0.9),]
+pval_cor_with_diffusion_score <- apply(logcounts_temp,1,function(x) cor.test(x,sce_ABE_resistance$diffusion_score,method="spearman")$p.value)
+sig_genes <- names(pval_cor_with_diffusion_score)[p.adjust(pval_cor_with_diffusion_score,method="BH") < 10-6]
+logcounts_resistance_sig <- logcounts_temp[sig_genes,]
+
+logcounts_CDR_CBE <- logcounts(sce_CBE[sig_genes,sce_CBE$variant_class_highest_impact=="canonical drug resistance"])
+cor_CDR_CBE <- cor(logcounts_CDR_CBE,logcounts_resistance_sig,method="spearman")
+max_cor_CDR_CBE <- apply(cor_CDR_CBE,1,function(x) colnames(cor_CDR_CBE)[order(x,decreasing = TRUE)[1:5]])
+diffusion_score_max_cor_CDR_CBE <- apply(max_cor_CDR_CBE,2,function(x) mean(sce_ABE_resistance[,x]$diffusion_score))
+names(diffusion_score_max_cor_CDR_CBE) <- rownames(cor_CDR_CBE)
+```
+
+Now we plot the projected diffusion scores.
+
+```{r}
+validation_lib <- read.table("../../sc_HT29_debcet_annotated_270623.csv",sep=",",header=TRUE)
+#replace the line above using supplementary table 1 from our preprint
+feature_ref <- read.table("feature_ref_gRNA_CBE.csv",sep=",",header=TRUE)
+validation_lib <- validation_lib[validation_lib$editor=="CBE" & validation_lib$sgRNA_ID%in%feature_ref$id,]
+
+sce_CBE_resistance <- sce_CBE[,names(diffusion_score_max_cor_CDR_CBE)]
+sce_CBE_resistance$diffusion_score_DA <-   diffusion_score_max_cor_CDR_CBE 
+
+sce_CBE_resistance_one_gRNA <- sce_CBE_resistance[,!(grepl("-",sce_CBE_resistance$gRNA))]
+gRNAs_resistance_CBE <- names(table(sce_CBE_resistance_one_gRNA$gRNA))[table(sce_CBE_resistance_one_gRNA$gRNA) >= 10]
+
+df_gRNA_ds_mean <- unlist(lapply(1:length(gRNAs_resistance_CBE),function(x) mean(sce_CBE_resistance_one_gRNA$diffusion_score_DA[sce_CBE_resistance_one_gRNA$gRNA==gRNAs_resistance_CBE[x]])))
+names(df_gRNA_ds_mean ) <- gRNAs_resistance_CBE
+
+levels_a <- names(df_gRNA_ds_mean)[order(df_gRNA_ds_mean,decreasing=TRUE)]
+
+
+df <- data.frame(diffusion_score_DA=sce_CBE_resistance_one_gRNA$diffusion_score_DA,gRNA=sce_CBE_resistance_one_gRNA$gRNA)
+
+split_gRNAs <- function(line_df){
+  output <- line_df
+  if (sum(grepl("-",line_df$gRNA))>=1)
+    {
+    w <- strsplit(line_df$gRNA,"-")[[1]]
+      for (k in 1:length(w)){
+        output <- rbind(output,unlist(c(line_df[1],w[k])))
+      }
+    }
+  return(output)
+}
+
+split_gRNAs_df <- function(d_f){
+  output <- c()
+  for (j in 1:nrow(d_f)){
+    output <- rbind(output,split_gRNAs(d_f[j,]))  }
+  output <- output[!(grepl("-",output$gRNA)),]
+}
+
+df <- split_gRNAs_df(df)
+df <- df[df$gRNA%in%gRNAs_resistance_CBE,]
+
+
+df$diffusion_score_DA <- as.double(df$diffusion_score_DA)
+df$mean_diffusion_score_DA <- df_gRNA_ds_mean[as.vector(df$gRNA)]
+df$variant_class <- validation_lib$variant_class[match(as.vector(df$gRNA),validation_lib$ID)]
+df$gRNA=factor(df$gRNA,levels=levels_a)
+
+
+sce_ABE_resistance_one_gRNA <- sce_ABE_resistance[,!(grepl("-",sce_ABE_resistance$gRNA))]
+gRNAs_resistance_ABE <- names(table(sce_ABE_resistance_one_gRNA$gRNA))[table(sce_ABE_resistance_one_gRNA$gRNA) >= 10]
+
+
+df_gRNA_ds_mean_ABE <- unlist(lapply(1:length(gRNAs_resistance_ABE),function(x) mean(sce_ABE_resistance_one_gRNA$diffusion_score[sce_ABE_resistance_one_gRNA$gRNA==gRNAs_resistance_ABE[x]])))
+
+p2 <- ggplot(as.data.frame(df),aes(x=diffusion_score_DA,y=gRNA,fill=mean_diffusion_score_DA)) + geom_density_ridges() + scale_fill_viridis_c(option="magma",limits=c(min(df_gRNA_ds_mean_ABE),max(df_gRNA_ds_mean_ABE)))+
+  theme_classic(base_size=24)+ylab("")+theme(legend.position = "none")
+print(p2)
+```
+# Projected gRNA clusters for CBE data
+
+Similarly to the diffusion scores, we also project the gRNA clusters to the CBE data set. Each CBE iBAR group is assigned the most frequent cluster among the cluster associations of the five most rank-correlated ABE iBAR groups. 
+
+```{r}
+library(stringr)
+validation_lib_ABE <- read.table("validation_lib_ann_ABE.csv",sep=",",header=TRUE)
+gRNA_max_cor_CDR_CBE <- apply(max_cor_CDR_CBE,2,function(x) sce_ABE_resistance[,x]$gRNA)
+colnames(gRNA_max_cor_CDR_CBE) <- rownames(cor_CDR_CBE)
+gRNA_max_cor_CDR_CBE <- gRNA_max_cor_CDR_CBE[,sapply(colnames(gRNA_max_cor_CDR_CBE),function(x) str_count(x,"-"))==1]
+cluster_max_cor_CDR_CBE <- apply(gRNA_max_cor_CDR_CBE ,1,function(x) validation_lib_ABE$cluster[match(x,validation_lib_ABE$ID)])
+
+find_mode <- function(v){
+  table_v <- sort(table(v),decreasing=TRUE)
+  if (length(table_v)==1){
+    return(unique(v))
+  }else{
+      if (table_v[1] > table_v[2]){
+      return(names(table_v)[1])
+    }else{
+      return(names(table_v)[sample(1:2,1)])
+    }
+  }
+}
+
+mapped_clusters <- apply(cluster_max_cor_CDR_CBE,1,find_mode)
+names(mapped_clusters) <- colnames(gRNA_max_cor_CDR_CBE)
+
+#averaging the mapped clusters across gRNAs
+mapped_cluster_per_gRNA <- sapply(gRNAs_resistance_CBE,function(x) find_mode(mapped_clusters[grepl(x,names(mapped_clusters))]))
+```
+
+Finally, we add mapped diffusion scores and clusters to the annotated validation library. 
+
+```{r}
+validation_lib_ann_CBE <- read.table("validation_lib_ann_CBE.csv",header=TRUE,sep=",")
+validation_lib_ann_CBE$mapped.cluster <- NA
+validation_lib_ann_CBE$mapped.diffusion.score <- NA
+validation_lib_ann_CBE$mapped.cluster[match(names(mapped_cluster_per_gRNA),validation_lib_ann_CBE$ID)] <- mapped_cluster_per_gRNA
+validation_lib_ann_CBE$mapped.diffusion.score[match(names(df_gRNA_ds_mean),validation_lib_ann_CBE$ID)] <- df_gRNA_ds_mean
+write.table(validation_lib_ann_CBE,file="validation_lib_ann_CBE.csv",row.names=FALSE,col.names=TRUE,sep=",")
+sce_CBE$diffusion_score_DA <- NA
+sce_CBE[,colnames(sce_CBE_resistance)]$diffusion_score_DA <- sce_CBE_resistance$diffusion_score_DA
+saveRDS(sce_CBE,file="sce_CBE.rds")
+```

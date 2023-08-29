@@ -1,0 +1,129 @@
+---
+title: "Diffusion scores and genotype"
+author: "Magdalena Strauss"
+output:
+  BiocStyle::html_document:
+    code_folding: hide
+    number_sections: yes
+    toc: yes  
+---
+
+This notebook links the phenotype-based diffusion scores to editing outcomes from amplicon sequencing. 
+
+More specifically, we identify gRNAs with a bimodal distribution and then check the allele frequency of edits for those gRNAs. To identify biomodal distributions, we perform clustering using a mixture of normal distributions with identical variances. This is done using the mclust R package (Scrucca L., Fop M., Murphy T. B. and Raftery A. E. (2016) mclust 5: clustering, classification and density estimation using Gaussian finite mixture models The R Journal 8/1, pp. 289-317), with mclust identifying the best number of clusters from between 1 and 5 clusters. We identify a gRNA as bimodal, if the optimal number of clusters is equal to 2. 
+
+```{r}
+knitr::opts_chunk$set(warning=FALSE,message=FALSE)
+amplicon_data <- read.table("../../amplicon_seq.csv",sep=",",header=TRUE)
+validation_lib_CBE <- read.table("validation_lib_ann_CBE.csv",sep=",",header=TRUE)
+validation_lib_ABE <- read.table("validation_lib_ann_ABE.csv",sep=",",header=TRUE)
+
+amplicon_data_CBE <- amplicon_data[amplicon_data$ref_alt%in%c("C>T","G>A"),]
+amplicon_data_ABE <- amplicon_data[amplicon_data$ref_alt%in%c("T>C","A>G"),]
+amplicon_data_ABE$gRNA_ID <- validation_lib_ABE$ID[match(amplicon_data_ABE$G_guide, validation_lib_ABE$G_guide)]
+amplicon_data_CBE$gRNA_ID <- validation_lib_CBE$ID[match(amplicon_data_CBE$G_guide, validation_lib_CBE$G_guide)]
+```
+
+# Bimodality of diffusion scores and VAF for ABE
+
+
+```{r}
+sce_ABE <- readRDS("sce_ABE.rds")
+gRNAs_ABE <- names(table(sce_ABE$gRNA[!(grepl("-",sce_ABE$gRNA))]))[table(sce_ABE$gRNA[!(grepl("-",sce_ABE$gRNA))])>=10]
+gRNAs_NT <- gRNAs_ABE[grepl("non_targeting",gRNAs_ABE)]
+gRNAs_ABE <- setdiff(gRNAs_ABE,gRNAs_NT)
+gRNAs_resistance_ABE <- intersect(gRNAs_ABE,validation_lib_ABE$ID[validation_lib_ABE$variant_class!="control"])
+
+amplicon_data_ABE_resistance <- amplicon_data_ABE[amplicon_data_ABE$gRNA_ID%in%gRNAs_resistance_ABE,]
+amplicon_data_ABE_resistance$outcome <- paste0(amplicon_data_ABE_resistance$edit_position,":",amplicon_data_ABE_resistance$ref_alt)
+```
+
+
+```{r}
+library(dplyr)
+amplicon_data_ABE_resistance <- amplicon_data_ABE_resistance[,c("gRNA_ID","vaf","outcome")]
+amplicon_data_ABE_resistance <- amplicon_data_ABE_resistance %>%
+  group_by(gRNA_ID, outcome) %>%
+  summarise(vaf = mean(vaf))
+```
+```{r}
+library(mclust)
+prop_in_upper_cluster_ABE <- rep(NA,length(gRNAs_resistance_ABE))
+names(prop_in_upper_cluster_ABE) <- gRNAs_resistance_ABE
+for (j in 1:length(gRNAs_resistance_ABE)){
+  fit <- Mclust(sce_ABE$diffusion_score[sce_ABE$gRNA==gRNAs_resistance_ABE[j]],G=1:5,modelNames="E")
+  if(fit$G==2){
+    prop_in_upper_cluster_ABE[j] <- fit$parameters$pro[which.max(fit$parameters$mean)]
+  }
+}
+amplicon_data_ABE_resistance$prop_in_upper_cluster <- prop_in_upper_cluster_ABE[amplicon_data_ABE_resistance$gRNA_ID]
+validation_lib_ABE$proportion_cluster_higher_diffusion_score <- prop_in_upper_cluster_ABE[validation_lib_ABE$ID]
+write.table(validation_lib_ABE,file="validation_lib_ann_ABE.csv",sep=",",col.names=TRUE,row.names=FALSE)
+```
+
+```{r}
+amplicon_data_ABE_resistance$max_vaf_gRNA <- NA
+for (j in 1:length(unique(amplicon_data_ABE_resistance$gRNA_ID))){
+  amplicon_data_ABE_resistance$max_vaf_gRNA[amplicon_data_ABE_resistance$gRNA_ID==unique(amplicon_data_ABE_resistance$gRNA_ID)[j]] <- 
+    max(amplicon_data_ABE_resistance$vaf[amplicon_data_ABE_resistance$gRNA_ID==unique(amplicon_data_ABE_resistance$gRNA_ID)[j]])
+}
+```
+
+Below we print those gRNAs for which the maximum allele frequency of a relevant mutation is < 0.9. prop_in_upper cluster refers to the proportion of iBAR groups in the cluster with higher diffusion scores for bimodal gRNAs. For gRNAs that are not bimodal, prop_in_upper_cluster is set to NA. 
+
+```{r}
+amplicon_data_ABE_resistance[amplicon_data_ABE_resistance$max_vaf_gRNA<0.9,]
+```
+
+# Bimodality of diffusion scores and VAF for CBE
+
+Here we use the diffusion scores for the CBE data that were obtained from the mapping to the ABE data and therefore measure progression towards drug addiction. 
+
+```{r}
+sce_CBE <- readRDS("sce_CBE.rds")
+gRNAs_CBE <- names(table(sce_CBE$gRNA[!(grepl("-",sce_CBE$gRNA))]))[table(sce_CBE$gRNA[!(grepl("-",sce_CBE$gRNA))])>=10]
+gRNAs_NT <- gRNAs_CBE[grepl("non_targeting",gRNAs_CBE)]
+gRNAs_CBE <- setdiff(gRNAs_CBE,gRNAs_NT)
+gRNAs_resistance_CBE <- intersect(gRNAs_CBE,validation_lib_CBE$ID[validation_lib_CBE$variant_class=="canonical drug resistance"])
+
+amplicon_data_CBE_resistance <- amplicon_data_CBE[amplicon_data_CBE$gRNA_ID%in%gRNAs_resistance_CBE,]
+amplicon_data_CBE_resistance$outcome <- paste0(amplicon_data_CBE_resistance$edit_position,":",amplicon_data_CBE_resistance$ref_alt)
+```
+
+
+```{r}
+library(dplyr)
+amplicon_data_CBE_resistance <- amplicon_data_CBE_resistance[,c("gRNA_ID","vaf","outcome")]
+amplicon_data_CBE_resistance <- amplicon_data_CBE_resistance %>%
+  group_by(gRNA_ID, outcome) %>%
+  summarise(vaf = mean(vaf))
+```
+```{r}
+library(mclust)
+prop_in_upper_cluster_CBE <- rep(NA,length(gRNAs_resistance_CBE))
+names(prop_in_upper_cluster_CBE) <- gRNAs_resistance_CBE
+for (j in 1:length(gRNAs_resistance_CBE)){
+  fit <- Mclust(sce_CBE$diffusion_score_DA[sce_CBE$gRNA==gRNAs_resistance_CBE[j]],G=1:5,modelNames="E")
+  if(fit$G==2){
+    prop_in_upper_cluster_CBE[j] <- fit$parameters$pro[which.max(fit$parameters$mean)]
+  }
+}
+amplicon_data_CBE_resistance$prop_in_upper_cluster <- prop_in_upper_cluster_CBE[amplicon_data_CBE_resistance$gRNA_ID]
+validation_lib_CBE$proportion_cluster_higher_diffusion_score <- prop_in_upper_cluster_CBE[validation_lib_CBE$ID]
+write.table(validation_lib_CBE,file="validation_lib_ann_CBE.csv",sep=",",col.names=TRUE,row.names=FALSE)
+```
+
+```{r}
+amplicon_data_CBE_resistance$max_vaf_gRNA <- NA
+for (j in 1:length(unique(amplicon_data_CBE_resistance$gRNA_ID))){
+  amplicon_data_CBE_resistance$max_vaf_gRNA[amplicon_data_CBE_resistance$gRNA_ID==unique(amplicon_data_CBE_resistance$gRNA_ID)[j]] <- 
+    max(amplicon_data_CBE_resistance$vaf[amplicon_data_CBE_resistance$gRNA_ID==unique(amplicon_data_CBE_resistance$gRNA_ID)[j]])
+}
+```
+
+Below we print those gRNAs for which the maximum allele frequency of a relevant mutation is < 0.9. prop_in_upper cluster refers to the proportion of iBAR groups in the cluster with higher diffusion scores for bimodal gRNAs. For gRNAs that are not bimodal, prop_in_upper_cluster is set to NA. 
+
+
+```{r}
+amplicon_data_CBE_resistance[amplicon_data_CBE_resistance$max_vaf_gRNA<0.9,]
+```
