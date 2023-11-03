@@ -280,7 +280,7 @@ gRNAs_test <-intersect(gRNAs,c(validation_lib$ID[validation_lib$variant_class!="
 
 More precisely, the following is DE analysis between iBAR-groups with unique non-targeting gRNAs and iBAR groups containing gRNAs from the set of gRNAs identified above. 
 
-```{r}
+```{r, eval=FALSE}
 markers <- list()
 sce_tempA <- sce_iBAR
 sce_tempA$gRNA[sce_tempA$gRNA %in% gRNAs_NT] <- "nontargeting"
@@ -426,8 +426,11 @@ library(dendsort)
 
 callback = function(hc, ...){dendsort(hc)}
 
+if (yy=="ABE"){
+  cellheight=0.2
+}else{cellheight=1}
 heatmap_markers <- pheatmap(av_logcount_per_gRNA_scaled,annotation_col = df_logcounts,annotation_colors = cols_logcounts,show_rownames = FALSE,
-        treeheight_row = 0,show_colnames = FALSE,color=colorRampPalette(c("Darkblue", "white","red"))(20),cutree_rows=2,cutree_cols = 4,clustering_callback = callback,cellheight = 0.2)
+        treeheight_row = 0,show_colnames = FALSE,color=colorRampPalette(c("Darkblue", "white","red"))(20),cutree_rows=2,cutree_cols = 4,clustering_callback = callback,cellheight = cellheight)
 ```
 
 We summarise the expression within the gene modules in the heatmap and replot.
@@ -445,25 +448,18 @@ validation_lib$cluster <- NA
 validation_lib$cluster[match(names(gRNA_clusters),validation_lib$ID)] <- gRNA_clusters
 ```
 
-Finally, we replot the heatmap with the same order of gRNAs, only plotting the genes whose expression is most rank-correlated with energy distance, and restricting to gRNAs found to be resistant in the pooled screens, adding cluster and energy distance to the row annotations.  
+Finally, we replot the heatmap with the same order of gRNAs, only plotting cell-cycle related genes, and restricting to gRNAs found to be resistant in the pooled screens, adding cluster and energy distance to the row annotations.  
 
 ```{r heatmap_markers_top,fig.width=10,fig.height=5}
-
+file_cc_genes <- "../../GO.0007049.csv"
+cc_genes_ens <- unique(read.table(file_cc_genes,sep=",")$V1)
+cc_genes <- rowData(sce)$V2[match(cc_genes_ens,rowData(sce)$V1)]
+top_markers_rep <- table(markers$DE_gene_name[markers$FDR<=0.1&abs(markers$summary.AUC-0.5)>0.2&markers$DE_gene_name%in%cc_genes])
+frequent_marker_genes <- names(top_markers_rep)[order(top_markers_rep)[1:min(length(top_markers_rep),20)]]
 av_logcount_per_gRNA_scaled_ordered <- av_logcount_per_gRNA_scaled[,heatmap_markers$tree_col$order]
 av_logcount_per_gRNA_scaled_ordered <- av_logcount_per_gRNA_scaled_ordered[,colnames(av_logcount_per_gRNA_scaled_ordered)%in%validation_lib$ID[validation_lib$variant_class%in%c("driver","drug addiction","canonical drug resistance")]]
-# 
-# adjR_squared <- apply(av_logcount_per_gRNA_scaled,1,function(x) summary(lm(x~as.factor(gRNA_clusters)))$adj.r.squared)
 
-# av_logcount_per_gRNA_scaled_ordered_sub <- av_logcount_per_gRNA_scaled_ordered[order(adjR_squared,decreasing=TRUE)[1:40],]
-
-#most_DE_genes <-  unique(markers$DE_gene_name[markers$FDR<10^-3&(markers$summary.AUC<0.2|markers$summary.AUC>0.8)&markers$Top<=20])
-
-#finding the genes most correlated with energy distance
-
-cor_with_ed <- cor(t(av_logcount_per_gRNA_scaled_ordered),ed[colnames(av_logcount_per_gRNA_scaled_ordered)],method="spearman")
-
-
-av_logcount_per_gRNA_scaled_ordered_sub <- av_logcount_per_gRNA_scaled_ordered[order(abs(cor_with_ed),decreasing=TRUE)[1:20],]
+av_logcount_per_gRNA_scaled_ordered_sub <- av_logcount_per_gRNA_scaled_ordered[rownames(av_logcount_per_gRNA_scaled_ordered)%in%intersect(cc_genes,frequent_marker_genes),]
 df_logcounts_sub <- df_logcounts
 cols_logcounts_sub <- cols_logcounts
 cols_logcounts_sub$cluster <- c("4"="purple","2"="blue","3"="black","1"="lightgrey")
@@ -473,11 +469,9 @@ df_logcounts_sub <- df_logcounts_sub[colnames(av_logcount_per_gRNA_scaled_ordere
 rowgaps <- c(sum(df_logcounts_sub$cluster==1),sum(df_logcounts_sub$cluster%in%c(1,2)),
                       sum(df_logcounts_sub$cluster%in%c(1,2,3)), sum(df_logcounts_sub$cluster!=4))
 
-
 pheatmap(t(av_logcount_per_gRNA_scaled_ordered_sub),annotation_row = df_logcounts_sub,annotation_colors = cols_logcounts_sub,treeheight_row = 0,
         show_rownames=TRUE,color=colorRampPalette(c("Darkblue", "white","red"))(20),
         cluster_rows=FALSE,cutree_cols=2,treeheight_col=0,clustering_callback = callback,gaps_row = rowgaps)
-
 
 ```
 
@@ -1182,7 +1176,7 @@ median_PFS_outcome_score_per_variant_class <- df_cor_R_all[,c("PFS_outcome_score
 median_PFS_outcome_score_per_variant_class <- median_PFS_outcome_score_per_variant_class[order(median_PFS_outcome_score_per_variant_class$median_PFS_outcome_score),]
 df_cor_R_all$variant_class <- factor(df_cor_R_all$variant_class,levels=median_PFS_outcome_score_per_variant_class$variant_class)
 
-ggplot(df_cor_R_all,aes(y=PFS_outcome_score,x=variant_class,color=variant_class)) + geom_boxplot() + scale_color_manual(values=colourscheme_temp)+theme_classic(base_size=14)+xlab("")+theme(
+ggplot(df_cor_R_all,aes(y=PFS_outcome_score,x=variant_class,color=variant_class)) +  geom_boxplot() + geom_jitter() + scale_color_manual(values=colourscheme_temp)+theme_classic(base_size=14)+xlab("")+theme(
   axis.text.x = element_blank())
 ```
 
