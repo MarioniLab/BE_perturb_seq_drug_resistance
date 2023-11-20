@@ -40,7 +40,7 @@ library(MASS)
 library(energy)
 library(ggthemes)
 library(progeny)
-library(ggridges)
+#library(ggridges)
 library(stringr)
 library(ggrepel)
 library(mclust)
@@ -718,7 +718,7 @@ df$gRNA=factor(df$gRNA,levels=levels_a)
 
 y_lab_colours <- colourscheme_variant_class[validation_lib$variant_class[match(levels_a,validation_lib$ID)]]
 
-p2 <- ggplot(as.data.frame(df),aes(x=diffusion_score,y=gRNA,fill=mean_diffusion_score)) + geom_density_ridges() + scale_fill_viridis_c(option="magma")+
+p2 <- ggplot(as.data.frame(df),aes(x=diffusion_score,y=gRNA,fill=mean_diffusion_score)) + ggridges::geom_density_ridges() + scale_fill_viridis_c(option="magma")+
   theme_classic()+theme(axis.text.y = element_text(color=y_lab_colours))+ylab("")
 print(p2)
 ```
@@ -730,7 +730,7 @@ Now we re-colour the plot above by PFS_outcome score, keeping the horizontal ord
 df_unique_gRNA <- df[!(grepl("-",df$gRNA)),]
 df_unique_gRNA$PFS_outcome_score <- cor_R[as.vector(df_unique_gRNA$gRNA)]
  
-p3 <- ggplot(as.data.frame(df_unique_gRNA),aes(x=diffusion_score,y=gRNA,fill=PFS_outcome_score)) + geom_density_ridges() + scale_fill_viridis_c()+
+p3 <- ggplot(as.data.frame(df_unique_gRNA),aes(x=diffusion_score,y=gRNA,fill=PFS_outcome_score)) + ggridges::geom_density_ridges() + scale_fill_viridis_c()+
   theme_classic()+theme(axis.text.y = element_text(color=y_lab_colours))+ylab("")
 print(p3)
 ```
@@ -795,9 +795,12 @@ rownames(gRNA_pathway_mean) <- gRNAs
 The following heatmap illustrates mean PROGENy scores for all targeting gRNAs.
 
 ```{r heatmap_pathway_scores}
-df_row_pathway <- data.frame(variant_class=validation_lib$variant_class[match(gRNAs,validation_lib$ID)])
+df_row_pathway <- data.frame(variant_class=validation_lib$variant_class[match(gRNAs,validation_lib$ID)],
+                             cluster=factor(sapply(validation_lib$cluster[match(gRNAs,validation_lib$ID)],toString),
+                                            levels=c("1","2","3","4")))
 rownames(df_row_pathway) <- gRNAs
-colors_pathway_heatmap <- list(variant_class=colourscheme_variant_class[unique(df_row_pathway$variant_class)])
+colors_pathway_heatmap <- list(variant_class=colourscheme_variant_class[unique(df_row_pathway$variant_class)],
+                              cluster = c("4"="purple","2"="blue","3"="black","1"="lightgrey"))
 max_val <- max(gRNA_pathway_mean)
 min_val <- min(gRNA_pathway_mean)
 nr_colors <- 30
@@ -807,7 +810,25 @@ breaks_pathway = c(seq(min_val, 0,
                       length.out=ceiling(nr_colors/2) + 1),
                   seq(max_val/nr_colors, 
                       max_val, length.out=floor(nr_colors/2)))
-pheatmap(t(gRNA_pathway_mean),annotation_col=df_row_pathway,annotation_colors = colors_pathway_heatmap ,col=col_pathway,breaks=breaks_pathway,show_colnames = FALSE,treeheight_col = 100,cutree_cols=3,cellheight = 10,treeheight_row = 0)
+pheatmap(t(gRNA_pathway_mean[as.vector(order(df_row_pathway[rownames(gRNA_pathway_mean),]$cluster)),]),annotation_col=df_row_pathway,annotation_colors = colors_pathway_heatmap ,col=col_pathway,show_colnames = FALSE,cluster_cols=FALSE,cutree_cols=4,cellheight = 10,treeheight_row = 0,breaks=breaks_pathway)
+```
+```{r heatmap_pathway_scores_clustered}
+df_row_pathway <- data.frame(variant_class=validation_lib$variant_class[match(gRNAs,validation_lib$ID)],
+                             cluster=factor(sapply(validation_lib$cluster[match(gRNAs,validation_lib$ID)],toString),
+                                            levels=c("1","2","3","4")))
+rownames(df_row_pathway) <- gRNAs
+colors_pathway_heatmap <- list(variant_class=colourscheme_variant_class[unique(df_row_pathway$variant_class)],
+                              cluster = c("4"="purple","2"="blue","3"="black","1"="lightgrey"))
+max_val <- max(gRNA_pathway_mean)
+min_val <- min(gRNA_pathway_mean)
+nr_colors <- 30
+col_pathway = colorRampPalette(c("Darkblue", "white","red"))(nr_colors)
+
+breaks_pathway = c(seq(min_val, 0, 
+                      length.out=ceiling(nr_colors/2) + 1),
+                  seq(max_val/nr_colors, 
+                      max_val, length.out=floor(nr_colors/2)))
+pheatmap(t(gRNA_pathway_mean[as.vector(order(df_row_pathway[rownames(gRNA_pathway_mean),]$cluster)),]),annotation_col=df_row_pathway,annotation_colors = colors_pathway_heatmap ,col=col_pathway,show_colnames = FALSE,cluster_cols=TRUE,cutree_cols=4,cellheight = 10,treeheight_row = 0,breaks=breaks_pathway)
 ```
 
 Now we zoom in on the gRNAs that confer resistance or drug addiction 
