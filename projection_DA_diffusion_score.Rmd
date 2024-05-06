@@ -110,45 +110,14 @@ p2 <- ggplot(as.data.frame(df),aes(x=diffusion_score_DA,y=gRNA,fill=mean_diffusi
   theme_classic(base_size=24)+ylab("")+theme(legend.position = "none")
 print(p2)
 ```
-# Projected gRNA clusters for CBE data
 
-Similarly to the diffusion scores, we also project the gRNA clusters to the CBE data set. Each CBE iBAR group is assigned the most frequent cluster among the cluster associations of the five most rank-correlated ABE iBAR groups. 
 
-```{r}
-library(stringr)
-validation_lib_ABE <- read.table("validation_lib_ann_ABE.csv",sep=",",header=TRUE)
-gRNA_max_cor_CDR_CBE <- apply(max_cor_CDR_CBE,2,function(x) sce_ABE_resistance[,x]$gRNA)
-colnames(gRNA_max_cor_CDR_CBE) <- rownames(cor_CDR_CBE)
-gRNA_max_cor_CDR_CBE <- gRNA_max_cor_CDR_CBE[,sapply(colnames(gRNA_max_cor_CDR_CBE),function(x) str_count(x,"-"))==1]
-cluster_max_cor_CDR_CBE <- apply(gRNA_max_cor_CDR_CBE ,1,function(x) validation_lib_ABE$cluster[match(x,validation_lib_ABE$ID)])
 
-find_mode <- function(v){
-  table_v <- sort(table(v),decreasing=TRUE)
-  if (length(table_v)==1){
-    return(unique(v))
-  }else{
-      if (table_v[1] > table_v[2]){
-      return(names(table_v)[1])
-    }else{
-      return(names(table_v)[sample(1:2,1)])
-    }
-  }
-}
-
-mapped_clusters <- apply(cluster_max_cor_CDR_CBE,1,find_mode)
-names(mapped_clusters) <- colnames(gRNA_max_cor_CDR_CBE)
-
-#averaging the mapped clusters across gRNAs
-mapped_cluster_per_gRNA <- sapply(gRNAs_resistance_CBE,function(x) find_mode(mapped_clusters[grepl(x,names(mapped_clusters))]))
-```
-
-Finally, we add mapped diffusion scores and clusters to the annotated validation library. 
+Finally, we add mapped diffusion scores to the annotated validation library. 
 
 ```{r}
 validation_lib_ann_CBE <- read.table("validation_lib_ann_CBE.csv",header=TRUE,sep=",")
-validation_lib_ann_CBE$mapped.cluster <- NA
 validation_lib_ann_CBE$mapped.diffusion.score <- NA
-validation_lib_ann_CBE$mapped.cluster[match(names(mapped_cluster_per_gRNA),validation_lib_ann_CBE$ID)] <- mapped_cluster_per_gRNA
 validation_lib_ann_CBE$mapped.diffusion.score[match(names(df_gRNA_ds_mean),validation_lib_ann_CBE$ID)] <- df_gRNA_ds_mean
 write.table(validation_lib_ann_CBE,file="validation_lib_ann_CBE.csv",row.names=FALSE,col.names=TRUE,sep=",")
 sce_CBE$diffusion_score_DA <- NA

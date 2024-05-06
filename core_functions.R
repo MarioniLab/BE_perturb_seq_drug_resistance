@@ -169,3 +169,30 @@ QC_mRNA_outlier <- function(mRNA_counts,file_name="")
   return(discard)
 }
 
+
+#' @title Benjamini_Bogomolov_correction
+#' This function performs multiple testing correction across multiple families 
+#' as developed in Benjamini, Y., & Bogomolov, M. (2014). Selective inference on 
+#' multiple families of hypotheses.
+#' Journal of the Royal Statistical Society: Series B (Statistical Methodology), 76: 297-318.
+#' @param markers list of DE expression results 
+#' @param cutoff p-val cutoff for selection of a group
+#' @return list of markers with FDR corrected for multiple testing across multiple groups
+#' excludes list elements without any significant differential expression 
+Benjamini_Bogomolov_correction <- function(markers, cutoff=10^-6){
+  pvals <- lapply(markers,function(x) x$p.value)
+  FDRs <- avgFDR.p.adjust(pval = pvals, t=cutoff)
+  names_markers <- names(markers)
+  names(FDRs) <- names_markers
+  xx <- sapply(FDRs,function(x) length(x)>0)
+  names(xx) <- names(markers)
+  markers <- markers[xx]
+  FDRs <- FDRs[xx]
+  for (j in 1:length(markers)){
+    markers[[j]]$FDR <- FDRs[[j]]
+  }
+  return(list(selected=xx,markers=markers))
+}
+
+
+
