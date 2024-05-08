@@ -7,7 +7,6 @@ output:
     code_folding: hide
     number_sections: yes
     toc: yes
- 
   
 ---
 
@@ -28,10 +27,13 @@ params=list(dataset_ind=params[1],save_file_name_markers=params[2],sce_save_file
 ```{r,setup, output=FALSE,message=FALSE,warning=FALSE}
 knitr::opts_chunk$set(warning=FALSE,message=FALSE)
 
- # html_document:
- #    number_sections: yes
- #    toc: yes
- #    keep_md: yes
+
+
+# output:
+#   html_document:
+#     number_sections: yes
+#     toc: yes
+#     keep_md: yes
 
 library(bluster)
 source("../../core_functions.R")
@@ -389,6 +391,19 @@ write.table(markers_selected,file=markers_file,sep=",",col.names = TRUE,row.name
 write.table(selected_gRNAs, file_gRNA_selection, sep=",",row.names = TRUE,col.names=FALSE,quote=FALSE)
 ```
 
+We also save the markers for gene expression and pathway scores separately. 
+
+```{r}
+markers <- read.table(file=markers_file,sep=",",header=TRUE)
+markers_progeny <- markers[markers$DE_gene %in% colnames(progeny_scores),]
+markers_MAYA <- markers[markers$DE_gene %in% rownames(activity_summary_ordered),]
+markers_gex <- 
+  markers[!(markers$DE_gene %in% c(colnames(progeny_scores),rownames(activity_summary_ordered))),]
+write.table(markers_gex[markers_gex$FDR<0.1,],file=paste0("markers_gex_",yy,".csv"),sep=",",col.names = TRUE,row.names=FALSE)
+write.table(markers_progeny[markers_progeny$FDR<0.1,],file=paste0("markers_PROGENy_",yy,".csv"),sep=",",col.names = TRUE,row.names=FALSE)
+write.table(markers_MAYA[markers_MAYA$FDR<0.1,],file=paste0("markers_MAYA_",yy,".csv"),sep=",",col.names = TRUE,row.names=FALSE)
+```
+
 # Energy distances
 
 We compute energy distances (@Replogle), between targeting and non-targeting gRNAs, using iBAR-groups instead of cells.
@@ -497,11 +512,7 @@ conferring canonical resistance or drug addiction, or as driver mutations) is eq
 Across the selected gRNAs, we compute the number of differentially expressed genes (average expected FDR < 0.1):
 
 ```{r}
-markers <- read.table(file=markers_file,sep=",",header=TRUE)
-markers_progeny <- markers[markers$DE_gene %in% colnames(progeny_scores),]
-markers_MAYA <- markers[markers$DE_gene %in% rownames(activity_summary_ordered),]
-markers_gex <- 
-  markers[!(markers$DE_gene %in% c(colnames(progeny_scores),rownames(activity_summary_ordered))),]
+
 gRNAs_selected <- names(selected_gRNAs)[selected_gRNAs]
 nr_DE_genes <- sapply(gRNAs_selected,function(x) sum(markers_gex$FDR<0.1&markers_gex$gRNA==x))
 ```
@@ -545,6 +556,7 @@ We add a column to the validation_lib meta data with binary values indicating wh
 
 ```{r}
 validation_lib$transcriptional_impact_binary <- validation_lib$ID %in% gRNAs_selected
+validation_lib$transcriptional_impact_binary[!(validation_lib$ID %in% names(selected_gRNAs))] <- NA
 ```
 
 How many gRNAs from each class (canoncial resistance, driver, drug addiction) have a significant impact as defined by our cutoff?
@@ -580,14 +592,10 @@ av_logcount_per_gRNA <- sapply(1:length(gRNAs),function(x) return(rowMeans(logco
 colnames(av_logcount_per_gRNA) <- gRNAs
 rownames(av_logcount_per_gRNA) <- top_marker_genes
 av_logcount_per_gRNA_scaled <- t(apply(av_logcount_per_gRNA,1,function(x) (x-mean(x))/sd(x)))
-df_logcounts <- data.frame(variant_class=validation_lib$variant_class[match(colnames(av_logcount_per_gRNA),validation_lib$ID)],
-                           transcriptional_impact = sapply(validation_lib$transcriptional_impact_binary[match(colnames(av_logcount_per_gRNA),validation_lib$ID)],toString))
-df_logcounts$transcriptional_impact[df_logcounts$transcriptional_impact=="TRUE"] <- "significant"
-df_logcounts$transcriptional_impact[df_logcounts$transcriptional_impact=="FALSE"] <- "not significant"
+df_logcounts <- data.frame(variant_class=validation_lib$variant_class[match(colnames(av_logcount_per_gRNA),validation_lib$ID)])
 
 rownames(df_logcounts) <- colnames(av_logcount_per_gRNA)
-cols_logcounts <- list(variant_class=colourscheme_variant_class,
-                       transcriptional_impact=c("significant"="black","not significant"="grey"))
+cols_logcounts <- list(variant_class=colourscheme_variant_class)
 
 library(viridis)
 
@@ -608,13 +616,6 @@ heatmap_markers <- pheatmap(av_logcount_per_gRNA_scaled,annotation_col = df_logc
         treeheight_row = 0,show_colnames = FALSE,color=colorRampPalette(c("Darkblue", "white","red"))(20),cutree_rows=2,cutree_cols = 4,clustering_callback = callback,cellheight = cellheight)
 ```
 
-We summarise the expression within the gene modules in the heatmap and replot.
-
-```{r markers_heatmap_summary,fig.height=2,fig.width=12}
-heatmap_condensed <- pheatmap(av_logcount_per_gRNA_scaled,annotation_col = df_logcounts,annotation_colors = cols_logcounts,show_rownames = FALSE,
-        treeheight_row = 0,show_colnames = FALSE,color=colorRampPalette(c("Darkblue", "white","red"))(20),cutree_rows=2,cutree_cols = 4,clustering_callback = callback,cluster_rows=TRUE,kmeans_k=2,cellheight = 20,treeheight_col = 100)
-```
-
 We add the cluster information to the gRNA meta-data. 
 
 ```{r}
@@ -623,14 +624,14 @@ validation_lib$cluster <- NA
 validation_lib$cluster[match(names(gRNA_clusters),validation_lib$ID)] <- gRNA_clusters
 ```
 
-Finally, we replot the heatmap with the same order of gRNAs, only plotting cell-cycle related genes, and restricting to gRNAs found to be resistant in the pooled screens and having a significant overall transcriptional effect.
+Finally, we replot the heatmap with the same order of gRNAs, only plotting cell-cycle related genes, and restricting to gRNAs found to be resistant in the pooled screens and having a significant overall transcriptional effect. The heatmap includes only strongly affected cell cycle related genes, where we used the following cutoff for inclusion in the figure: an absolute log2-fold change of at least abs(lfc) > 0.75 and FDR < 0.001 for at least one gRNA. 
 
-```{r heatmap_markers_top,fig.width=10,fig.height=5}
+```{r heatmap_markers_top,fig.width=16,fig.height=4}
 file_cc_genes <- "../../GO.0007049.csv"
 cc_genes_ens <- unique(read.table(file_cc_genes,sep=",")$V1)
 cc_genes <- rowData(sce)$V2[match(cc_genes_ens,rowData(sce)$V1)]
-top_markers_rep <- table(markers$DE_gene[markers$FDR<=0.1&abs(markers$lfc)>0.5&markers$DE_gene%in%cc_genes])
-frequent_marker_genes <- names(top_markers_rep)[order(top_markers_rep)[1:min(length(top_markers_rep),20)]]
+top_markers_rep <- table(markers$DE_gene[markers$FDR<10^-3&abs(markers$lfc)>0.75&markers$DE_gene%in%cc_genes])
+frequent_marker_genes <- names(top_markers_rep)
 av_logcount_per_gRNA_scaled_ordered <- av_logcount_per_gRNA_scaled[,heatmap_markers$tree_col$order]
 av_logcount_per_gRNA_scaled_ordered <- av_logcount_per_gRNA_scaled_ordered[,colnames(av_logcount_per_gRNA_scaled_ordered)%in%validation_lib$ID[validation_lib$variant_class%in%c("driver","drug addiction","canonical drug resistance") & validation_lib$transcriptional_impact_binary]]
 
@@ -641,12 +642,12 @@ cols_logcounts_sub$cluster <- c("4"="purple","2"="blue","3"="black","1"="lightgr
 df_logcounts_sub$cluster <- as.factor(cutree(heatmap_markers$tree_col,4)[rownames(df_logcounts_sub)])
 df_logcounts_sub$log2_ed <- log2(ed[rownames(df_logcounts_sub)])
 df_logcounts_sub <- df_logcounts_sub[colnames(av_logcount_per_gRNA_scaled_ordered_sub),]
-rowgaps <- c(sum(df_logcounts_sub$cluster==1),sum(df_logcounts_sub$cluster%in%c(1,2)),
-                      sum(df_logcounts_sub$cluster%in%c(1,2,3)), sum(df_logcounts_sub$cluster!=4))
+# rowgaps <- c(sum(df_logcounts_sub$cluster==1),sum(df_logcounts_sub$cluster%in%c(1,2)),
+#                       sum(df_logcounts_sub$cluster%in%c(1,2,3)), sum(df_logcounts_sub$cluster!=4))
 
 pheatmap(t(av_logcount_per_gRNA_scaled_ordered_sub),annotation_row = df_logcounts_sub[,c("variant_class","cluster","log2_ed")],annotation_colors = cols_logcounts_sub,treeheight_row = 0,
         show_rownames=TRUE,color=colorRampPalette(c("Darkblue", "white","red"))(20),
-        cluster_rows=FALSE,cutree_cols=2,treeheight_col=0)
+        cluster_rows=FALSE,cutree_cols=2,treeheight_col=0,cellheight=13)
 
 ```
 
@@ -660,10 +661,12 @@ rownames(gRNA_pathway_mean) <- gRNAs
 gRNA_pathway_mean <- gRNA_pathway_mean[colnames(av_logcount_per_gRNA_scaled),]
 colnames(gRNA_pathway_mean) <- sapply(colnames(gRNA_pathway_mean),function(x) strsplit(x,"_")[[1]][2])
 
-df_row_pathway <- data.frame(variant_class=validation_lib$variant_class[match(gRNAs,validation_lib$ID)])
+df_row_pathway <- data.frame(variant_class=validation_lib$variant_class[match(gRNAs,validation_lib$ID)],
+                            cluster =  validation_lib$cluster[match(gRNAs,validation_lib$ID)])
 
 rownames(df_row_pathway) <- gRNAs
-colors_pathway_heatmap <- list(variant_class=colourscheme_variant_class[unique(df_row_pathway$variant_class)])
+colors_pathway_heatmap <- list(variant_class=colourscheme_variant_class[unique(df_row_pathway$variant_class)],
+                               cluster =  c("4"="purple","2"="blue","3"="black","1"="lightgrey"))
 max_val <- max(gRNA_pathway_mean)
 min_val <- min(gRNA_pathway_mean)
 nr_colors <- 30
@@ -805,10 +808,7 @@ pheatmap(cor_effect[gRNAs_DA,gRNAs_DA],annotation_col = df_row_cor,annotation_co
 
 # Progression-free survival (PFS) outcome score
 
-We use DE expression data (log2-fold change) for patients with PFS > 6 months and patients with PFS < 6 months from the following publication:
-
-Tian et al. (2023). Combined PD-1, BRAF and MEK inhibition in BRAFV600E colorectal cancer: a phase 2 trial. Nature Medicine.
-
+We use DE expression data (log2-fold change) for patients with PFS > 6 months and patients with PFS < 6 months from the @Tian. 
 First, we select the genes with adjusted p-values < 0.1 and abs(log2-fold change) > 0.25 for differential expression at 15 days versus pre-treatment for PFS<6m or PFS>6m.
 
 ```{r}
@@ -1066,10 +1066,10 @@ for (j in 1:length(gRNAs_selected)){
 
 # Differential expression across gRNA groups
 
-Now we perform differential expression across the variant types. To give equal weight to each gRNA, we subsample the same number of iBAR groups for each gRNA for any gRNA with more than 20 iBAR groups.
+Now we perform differential expression for PROGENy scores across the variant types. To give equal weight to each gRNA, we subsample the same number of iBAR groups for each gRNA for any gRNA with more than 20 iBAR groups.
 
 ```{r}
-sce_canonical_drug_resistance <- sce_logcounts_and_pathway_scores[,sce_logcounts_and_pathway_scores$variant_class_highest_impact=="canonical drug resistance"]
+sce_canonical_drug_resistance <- sce_logcounts_and_pathway_scores[colnames(progeny_scores),sce_logcounts_and_pathway_scores$variant_class_highest_impact=="canonical drug resistance"]
 gRNAs_canonical_drug_resistance <- validation_lib$ID[validation_lib$variant_class=="canonical drug resistance"]
 sce_canonical_drug_resistance_balanced <- sce_logcounts_and_pathway_scores[,sce_logcounts_and_pathway_scores$gRNA==""]
 for (j in 1:length(gRNAs_canonical_drug_resistance)){

@@ -1,0 +1,110 @@
+@article{scsnv-seq,
+	title = {{scSNV}-seq: high-throughput phenotyping of single nucleotide variants by coupled single-cell genotyping and transcriptomics},
+	volume = {25},
+	issn = {1474-760X},
+	abstract = {CRISPR screens with single-cell transcriptomic readouts are a valuable tool to understand the effect of genetic perturbations including single nucleotide variants (SNVs) associated with diseases. Interpretation of these data is currently limited as genotypes cannot be accurately inferred from guide RNA identity alone. scSNV-seq overcomes this limitation by coupling single-cell genotyping and transcriptomics of the same cells enabling accurate and high-throughput screening of SNVs. Analysis of variants across the JAK1 gene with scSNV-seq demonstrates the importance of determining the precise genetic perturbation and accurately classifies clinically observed missense variants into three functional categories: benign, loss of function, and separation of function.},
+	number = {1},
+	journal = {Genome Biology},
+	author = {Cooper, Sarah E. and Coelho, Matthew A. and Strauss, Magdalena E. and Gontarczyk, Aleksander M. and Wu, Qianxin and Garnett, Mathew J. and Marioni, John C. and Bassett, Andrew R.},
+	month = jan,
+	year = {2024},
+	pages = {20},
+}
+
+@article{Replogle,
+title = {Mapping information-rich genotype-phenotype landscapes with genome-scale Perturb-seq},
+journal = {Cell},
+volume = {185},
+number = {14},
+pages = {2559-2575.e28},
+year = {2022},
+issn = {0092-8674},
+author = {Joseph M. Replogle and Reuben A. Saunders and Angela N. Pogson and Jeffrey A. Hussmann and Alexander Lenail and Alina Guna and Lauren Mascibroda and Eric J. Wagner and Karen Adelman and Gila Lithwick-Yanai and Nika Iremadze and Florian Oberstrass and Doron Lipson and Jessica L. Bonnar and Marco Jost and Thomas M. Norman and Jonathan S. Weissman},
+keywords = {genetic screens, cell biology, CRISPR, single-cell RNA sequencing, genotype-phenotype map, Perturb-seq, Integrator complex, chromosomal instability, mitochondrial genome stress response},
+abstract = {Summary
+A central goal of genetics is to define the relationships between genotypes and phenotypes. High-content phenotypic screens such as Perturb-seq (CRISPR-based screens with single-cell RNA-sequencing readouts) enable massively parallel functional genomic mapping but, to date, have been used at limited scales. Here, we perform genome-scale Perturb-seq targeting all expressed genes with CRISPR interference (CRISPRi) across >2.5 million human cells. We use transcriptional phenotypes to predict the function of poorly characterized genes, uncovering new regulators of ribosome biogenesis (including CCDC86, ZNF236, and SPATA5L1), transcription (C7orf26), and mitochondrial respiration (TMEM242). In addition to assigning gene function, single-cell transcriptional phenotypes allow for in-depth dissection of complex cellular phenomena—from RNA processing to differentiation. We leverage this ability to systematically identify genetic drivers and consequences of aneuploidy and to discover an unanticipated layer of stress-specific regulation of the mitochondrial genome. Our information-rich genotype-phenotype map reveals a multidimensional portrait of gene and cellular function.}
+}
+
+@article{Haghverdi,
+    author = {Haghverdi, Laleh and Buettner, Florian and Theis, Fabian J.},
+    title = "{Diffusion maps for high-dimensional single-cell analysis of differentiation data}",
+    journal = {Bioinformatics},
+    volume = {31},
+    number = {18},
+    pages = {2989-2998},
+    year = {2015},
+    month = {05},
+    abstract = "{Motivation: Single-cell technologies have recently gained popularity in cellular differentiation studies regarding their ability to resolve potential heterogeneities in cell populations. Analyzing such high-dimensional single-cell data has its own statistical and computational challenges. Popular multivariate approaches are based on data normalization, followed by dimension reduction and clustering to identify subgroups. However, in the case of cellular differentiation, we would not expect clear clusters to be present but instead expect the cells to follow continuous branching lineages.Results: Here, we propose the use of diffusion maps to deal with the problem of defining differentiation trajectories. We adapt this method to single-cell data by adequate choice of kernel width and inclusion of uncertainties or missing measurement values, which enables the establishment of a pseudotemporal ordering of single cells in a high-dimensional gene expression space. We expect this output to reflect cell differentiation trajectories, where the data originates from intrinsic diffusion-like dynamics. Starting from a pluripotent stage, cells move smoothly within the transcriptional landscape towards more differentiated states with some stochasticity along their path. We demonstrate the robustness of our method with respect to extrinsic noise (e.g. measurement noise) and sampling density heterogeneities on simulated toy data as well as two single-cell quantitative polymerase chain reaction datasets (i.e. mouse haematopoietic stem cells and mouse embryonic stem cells) and an RNA-Seq data of human pre-implantation embryos. We show that diffusion maps perform considerably better than Principal Component Analysis and are advantageous over other techniques for non-linear dimension reduction such as t-distributed Stochastic Neighbour Embedding for preserving the global structures and pseudotemporal ordering of cells.Availability and implementation: The Matlab implementation of diffusion maps for single-cell data is available at https://www.helmholtz-muenchen.de/icb/single-cell-diffusion-map.Contact:  fbuettner.phys@gmail.com, fabian.theis@helmholtz-muenchen.deSupplementary information:  Supplementary data are available at Bioinformatics online.}",
+    issn = {1367-4803}
+}
+
+
+@Article{scuttle,
+    author = {Davis J. McCarthy and Kieran R. Campbell and Aaron T. L. Lun and Quin F. Willis},
+    title = {Scater: pre-processing, quality control, normalisation and visualisation of single-cell {R}{N}{A}-seq data in {R}},
+    journal = {Bioinformatics},
+    year = {2017},
+    volume = {33},
+    issue = {8},
+    pages = {1179-1186}
+  }
+
+article{Schubert,
+abstract = {Aberrant cell signaling can cause cancer and other diseases and is a focal point of drug research. A common approach is to infer signaling activity of pathways from gene expression. However, mapping gene expression to pathway components disregards the effect of post-translational modifications, and downstream signatures represent very specific experimental conditions. Here we present PROGENy, a method that overcomes both limitations by leveraging a large compendium of publicly available perturbation experiments to yield a common core of Pathway RespOnsive GENes. Unlike pathway mapping methods, PROGENy can (i) recover the effect of known driver mutations, (ii) provide or improve strong markers for drug indications, and (iii) distinguish between oncogenic and tumor suppressor pathways for patient survival. Collectively, these results show that PROGENy accurately infers pathway activity from gene expression in a wide range of conditions.},
+author = {Schubert, Michael and Klinger, Bertram and Kl{\"{u}}nemann, Martina and Sieber, Anja and Uhlitz, Florian and Sauer, Sascha and Garnett, Mathew J and Bl{\"{u}}thgen, Nils and Saez-Rodriguez, Julio},
+issn = {2041-1723},
+journal = {Nature Communications},
+number = {1},
+pages = {20},
+title = {{Perturbation-response genes reveal signaling footprints in cancer gene expression}},
+volume = {9},
+year = {2018}
+}
+
+@article{Holland,
+abstract = {Many functional analysis tools have been developed to extract functional and mechanistic insight from bulk transcriptome data. With the advent of single-cell RNA sequencing (scRNA-seq), it is in principle possible to do such an analysis for single cells. However, scRNA-seq data has characteristics such as drop-out events and low library sizes. It is thus not clear if functional TF and pathway analysis tools established for bulk sequencing can be applied to scRNA-seq in a meaningful way.},
+author = {Holland, Christian H and Tanevski, Jovan and Perales-Pat{\'{o}}n, Javier and Gleixner, Jan and Kumar, Manu P and Mereu, Elisabetta and Joughin, Brian A and Stegle, Oliver and Lauffenburger, Douglas A and Heyn, Holger and Szalai, Bence and Saez-Rodriguez, Julio},
+issn = {1474-760X},
+journal = {Genome Biology},
+number = {1},
+pages = {36},
+title = {{Robustness and applicability of transcription factor and pathway analysis tools on single-cell RNA-seq data}},
+volume = {21},
+year = {2020}
+}
+
+@article{BG,
+    author = {Benjamini, Yoav and Bogomolov, Marina},
+    title = "{Selective Inference on Multiple Families of Hypotheses}",
+    journal = {Journal of the Royal Statistical Society Series B: Statistical Methodology},
+    volume = {76},
+    number = {1},
+    pages = {297-318},
+    year = {2013},
+    month = {09},
+    abstract = "{In many complex multiple-testing problems the hypotheses are divided into families. Given the data, families with evidence for true discoveries are selected, and hypotheses within them are tested. Neither controlling the error rate in each family separately nor controlling the error rate over all hypotheses together can assure some level of confidence about the filtration of errors within the selected families. We formulate this concern about selective inference in its generality, for a very wide class of error rates and for any selection criterion, and present an adjustment of the testing level inside the selected families that retains control of the expected average error over the selected families.}",
+    issn = {1369-7412}
+}
+
+@article{Landais2023,
+abstract = {Signaling pathways can be activated through various cascades of genes depending on cell identity and biological context. Single-cell atlases now provide the opportunity to inspect such complexity in health and disease. Yet, existing reference tools for pathway scoring resume activity of each pathway to one unique common metric across cell types. Here, we present MAYA, a computational method that enables the automatic detection and scoring of the diverse modes of activation of biological pathways across cell populations. MAYA improves the granularity of pathway analysis by detecting subgroups of genes within reference pathways, each characteristic of a cell population and how it activates a pathway. Using multiple single-cell datasets, we demonstrate the biological relevance of identified modes of activation, the robustness of MAYA to noisy pathway lists and batch effect. MAYA can also predict cell types starting from lists of reference markers in a cluster-free manner. Finally, we show that MAYA reveals common modes of pathway activation in tumor cells across patients, opening the perspective to discover shared therapeutic vulnerabilities.},
+author = {Landais, Yuna and Vallot, C{\'{e}}line},
+issn = {2041-1723},
+journal = {Nature Communications},
+number = {1},
+pages = {1668},
+title = {{Multi-modal quantification of pathway activity with MAYA}},
+volume = {14},
+year = {2023}
+}
+
+@article{Tian2023,
+author = {Tian, Jun and Chen, Jonathan H and Chao, Sherry X and Pelka, Karin and Giannakis, Marios and Hess, Julian and Burke, Kelly and Jorgji, Vjola and Sindurakar, Princy and Braverman, Jonathan and Mehta, Arnav and Oka, Tomonori and Huang, Mei and Lieb, David and Spurrell, Maxwell and Allen, Jill N and Abrams, Thomas A and Clark, Jeffrey W and Enzinger, Andrea C and Enzinger, Peter C and Klempner, Samuel J and McCleary, Nadine J and Meyerhardt, Jeffrey A and Ryan, David P and Yurgelun, Matthew B and Kanter, Katie and {Van Seventer}, Emily E and Baiev, Islam and Chi, Gary and Jarnagin, Joy and Bradford, William B and Wong, Edmond and Michel, Alexa G and Fetter, Isobel J and Siravegna, Giulia and Gemma, Angelo J and Sharpe, Arlene and Demehri, Shadmehr and Leary, Rebecca and Campbell, Catarina D and Yilmaz, Omer and Getz, Gad A and Parikh, Aparna R and Hacohen, Nir and Corcoran, Ryan B},
+issn = {1546-170X},
+journal = {Nature Medicine},
+number = {2},
+pages = {458--466},
+title = {{Combined PD-1, BRAF and MEK inhibition in BRAFV600E colorectal cancer: a phase 2 trial}},
+volume = {29},
+year = {2023}
+}
