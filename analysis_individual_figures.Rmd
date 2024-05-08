@@ -58,7 +58,6 @@ library(MHTmult)
 set.seed(4444)
 
 knitr::opts_chunk$set(
-    echo = FALSE,
     message = FALSE,
     warning = FALSE,
     message = FALSE,
@@ -808,7 +807,7 @@ pheatmap(cor_effect[gRNAs_DA,gRNAs_DA],annotation_col = df_row_cor,annotation_co
 
 # Progression-free survival (PFS) outcome score
 
-We use DE expression data (log2-fold change) for patients with PFS > 6 months and patients with PFS < 6 months from the @Tian. 
+We use DE expression data (log2-fold change) for patients with PFS > 6 months and patients with PFS < 6 months from the @Tian2023. 
 First, we select the genes with adjusted p-values < 0.1 and abs(log2-fold change) > 0.25 for differential expression at 15 days versus pre-treatment for PFS<6m or PFS>6m.
 
 ```{r}
