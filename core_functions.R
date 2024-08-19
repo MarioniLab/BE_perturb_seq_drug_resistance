@@ -171,7 +171,7 @@ QC_mRNA_outlier <- function(mRNA_counts,file_name="")
 
 
 #' @title Benjamini_Bogomolov_correction
-#' This function performs multiple testing correction across multiple families 
+#' This function performs average FDR control across multiple families 
 #' as developed in Benjamini, Y., & Bogomolov, M. (2014). Selective inference on 
 #' multiple families of hypotheses.
 #' Journal of the Royal Statistical Society: Series B (Statistical Methodology), 76: 297-318.
