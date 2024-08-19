@@ -7,7 +7,6 @@ output:
     code_folding: hide
     number_sections: yes
     toc: yes
-  
 ---
 
 To run this script for the ABE data: Rscript run_analysis_individual.R 2 markers_ABE sce_ABE.rds analysis_ABE.html
@@ -29,11 +28,6 @@ knitr::opts_chunk$set(warning=FALSE,message=FALSE)
 
 
 
-# output:
-#   html_document:
-#     number_sections: yes
-#     toc: yes
-#     keep_md: yes
 
 library(bluster)
 source("../../core_functions.R")
@@ -61,12 +55,12 @@ knitr::opts_chunk$set(
     message = FALSE,
     warning = FALSE,
     message = FALSE,
-   # dev = c("pdf"),
+    #dev = c("pdf"),
     dpi=300
 )
 
 
-#params=c(2 ,"markers_ABE", "sce_ABE.rds", "analysis_ABE.html")
+#params=c(2 ,"markers_CBE", "sce_CBE.rds", "analysis_CBE.html")
 dataset_ind <- as.double(params[1])
 
 sce_list_file <- "sce_list_gRNA_iBAR.rds"
@@ -879,7 +873,10 @@ median_PFS_outcome_score_per_variant_class <- df_cor_R_all[,c("PFS_outcome_score
 median_PFS_outcome_score_per_variant_class <- median_PFS_outcome_score_per_variant_class[order(median_PFS_outcome_score_per_variant_class$median_PFS_outcome_score),]
 df_cor_R_all$variant_class <- factor(df_cor_R_all$variant_class,levels=median_PFS_outcome_score_per_variant_class$variant_class)
 
-ggplot(df_cor_R_all,aes(y=PFS_outcome_score,x=variant_class,color=variant_class)) +  geom_boxplot() + geom_jitter() + scale_color_manual(values=colourscheme_temp)+theme_classic(base_size=14)+xlab("")+theme(
+nr_per_variant_class <- df_cor_R_all[,c("PFS_outcome_score","variant_class")] %>% group_by(variant_class)%>% dplyr::count()
+print(nr_per_variant_class)
+
+ggplot(df_cor_R_all,aes(y=PFS_outcome_score,x=variant_class,color=variant_class)) +  geom_boxplot(outliers=FALSE) + geom_jitter() + scale_color_manual(values=colourscheme_temp)+theme_classic(base_size=14)+xlab("")+theme(
   axis.text.x = element_blank())
 ```
 
@@ -1187,7 +1184,7 @@ ggplot(df_cc,mapping=aes(x=resistance,fill=phase)) + geom_bar(aes( y=..count../t
 We test whether there is a significant change in the number of iBAR groups for each cell cycle phase between gRNAs associated with resistance, and those not associated with resistance.
 
 ```{r}
-df_cc_count <- df_cc %>% group_by_all() %>% count()
+df_cc_count <- df_cc %>% dplyr::group_by_all() %>% dplyr::count()
 table_compare_cc <- reshape2::acast(df_cc_count,phase~resistance)
 print(chisq.test(table_compare_cc))
 ```
