@@ -1206,4 +1206,8 @@ write.table(validation_lib,file=paste0("validation_lib_ann_",yy,".csv"),sep=",",
 saveRDS(sce_iBAR,file=sce_save_file)
 ```
 
+# Session info 
 
+```{r}
+sessionInfo()
+```
